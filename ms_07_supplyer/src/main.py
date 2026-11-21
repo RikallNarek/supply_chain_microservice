@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -12,6 +11,7 @@ from ms_07_supplyer.src.supplier_repository import (
 )
 
 from ms_07_supplyer.src.purchase_order_repository import (
+    get_all_purchase_orders,
     confirm_purchase_order,
     ship_purchase_order,
     deliver_purchase_order,
@@ -281,3 +281,19 @@ def cancel_po(po_id: str):
             detail="Terjadi kesalahan pada database"
         )
 
+
+@app.get("/purchase-orders")
+def list_purchase_orders():
+    try:
+        result = get_all_purchase_orders()
+
+        return {
+            "status": "success",
+            "data": result
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Terjadi kesalahan pada database"
+        )

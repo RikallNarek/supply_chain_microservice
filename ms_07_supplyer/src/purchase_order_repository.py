@@ -613,3 +613,39 @@ def cancel_purchase_order(po_id):
     finally:
         conn.close()
 
+
+def get_all_purchase_orders():
+    """
+    Mengambil seluruh daftar Purchase Order
+    beserta nama supplier.
+    """
+
+    conn = get_connection()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    po.id,
+                    po.po_number,
+                    po.supplier_id,
+                    s.name AS supplier_name,
+                    po.warehouse_id,
+                    po.purchase_request_id,
+                    po.status,
+                    po.total,
+                    po.created_at
+                FROM purchase_orders AS po
+                JOIN suppliers AS s
+                    ON po.supplier_id = s.id
+                ORDER BY po.created_at DESC
+                """
+            )
+
+            purchase_orders = cursor.fetchall()
+
+        return purchase_orders
+
+    finally:
+        conn.close()
