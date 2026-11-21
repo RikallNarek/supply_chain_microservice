@@ -12,6 +12,7 @@ from ms_07_supplyer.src.supplier_repository import (
 
 from ms_07_supplyer.src.purchase_order_repository import (
     get_all_purchase_orders,
+    get_purchase_order_by_id,
     confirm_purchase_order,
     ship_purchase_order,
     deliver_purchase_order,
@@ -291,6 +292,30 @@ def list_purchase_orders():
             "status": "success",
             "data": result
         }
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Terjadi kesalahan pada database"
+        )
+@app.get("/purchase-orders/{po_id}")
+def get_purchase_order_detail(po_id: str):
+    try:
+        result = get_purchase_order_by_id(po_id)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Purchase Order tidak ditemukan"
+            )
+
+        return {
+            "status": "success",
+            "data": result
+        }
+
+    except HTTPException:
+        raise
 
     except Exception:
         raise HTTPException(

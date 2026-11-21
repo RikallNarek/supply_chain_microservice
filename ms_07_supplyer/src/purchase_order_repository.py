@@ -649,3 +649,66 @@ def get_all_purchase_orders():
 
     finally:
         conn.close()
+
+
+def get_purchase_order_by_id(po_id):
+    """
+    Mengambil detail satu Purchase Order berdasarkan ID,
+    termasuk informasi supplier dan daftar barang.
+    """
+
+    conn = get_connection()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # 1. Mengambil informasi utama Purchase Order
+            cursor.execute(
+                """
+                SELECT
+                    po.id,
+                    po.po_number,
+                    po.supplier_id,
+                    s.name AS supplier_name,
+                    po.warehouse_id,
+                    po.purchase_request_id,
+                    po.status,
+                    po.total,
+                    po.created_at
+                FROM purchase_orders AS po
+                JOIN suppliers AS s
+                    ON po.supplier_id = s.id
+                WHERE po.id = %s
+                """,
+                (po_id,)
+            )
+
+            purchase_order = cursor.fetchone()
+
+            # 2. Memastikan Purchase Order ditemukan
+            if not purchase_order:
+                return None
+
+            # 3. Mengambil daftar barang dalam Purchase Order
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    commodity_id,
+                    quantity,
+                    unit_price
+                FROM purchase_order_items
+                WHERE purchase_order_id = %s
+                """,
+                (po_id,)
+            )
+
+            items = cursor.fetchall()
+
+            # 4. Menggabungkan informasi PO dan daftar barang
+            purchase_order["items"] = items
+
+        return purchase_order
+
+    finally:
+        conn.close()
