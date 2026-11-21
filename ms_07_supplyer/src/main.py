@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from ms_07_supplyer.src.supplier_repository import (
     get_all_suppliers,
+    get_supplier_by_id,
     create_supplier,
     update_supplier,
     delete_supplier,
@@ -44,7 +45,6 @@ def health_check():
         "message": "Supplier Service berjalan dengan baik"
     }
 
-
 @app.get("/suppliers")
 def read_suppliers():
     suppliers = get_all_suppliers()
@@ -54,6 +54,20 @@ def read_suppliers():
         "data": suppliers
     }
 
+@app.get("/suppliers/{supplier_id}")
+def read_supplier_detail(supplier_id: str):
+    supplier = get_supplier_by_id(supplier_id)
+
+    if supplier is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Supplier tidak ditemukan"
+        )
+
+    return {
+        "status": "success",
+        "data": supplier
+    }
 
 @app.post("/suppliers", status_code=201)
 def add_supplier(supplier: SupplierCreate):
@@ -281,7 +295,6 @@ def cancel_po(po_id: str):
             status_code=500,
             detail="Terjadi kesalahan pada database"
         )
-
 
 @app.get("/purchase-orders")
 def list_purchase_orders():

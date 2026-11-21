@@ -30,6 +30,32 @@ def get_all_suppliers():
         conn.close()
 
 
+def get_supplier_by_id(supplier_id):
+    conn = get_connection()
+
+    try:
+        with conn.cursor() as cursor:
+            query = """
+                SELECT
+                    id,
+                    code,
+                    name,
+                    contact,
+                    address,
+                    is_active
+                FROM suppliers
+                WHERE id = %s
+            """
+
+            cursor.execute(query, (supplier_id,))
+            supplier = cursor.fetchone()
+
+        return supplier
+
+    finally:
+        conn.close()
+
+
 def create_supplier(code, name, contact, address):
     conn = get_connection()
 
