@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ms_07_supplyer.src.supplier_repository import (
     get_all_suppliers,
@@ -32,8 +32,8 @@ class SupplierCreate(BaseModel):
 class SupplierProductCreate(BaseModel):
     supplier_id: str
     commodity_id: str
-    price: float
-    lead_time_days: int
+    price: float = Field(gt=0)
+    lead_time_days: int = Field(ge=0)
 
 
 @app.get("/health")
