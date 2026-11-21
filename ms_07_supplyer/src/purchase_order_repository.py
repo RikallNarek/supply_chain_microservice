@@ -1,6 +1,6 @@
 
 import uuid
-
+import json
 from ms_07_supplyer.src.database import get_connection
 
 
@@ -221,3 +221,102 @@ def process_po_requested(event):
 
     finally:
         conn.close()
+
+
+def confirm_purchase_order(po_id):
+    """
+    Mengonfirmasi Purchase Order yang masih berstatus CREATED.
+    Perubahan status dan pencatatan event dilakukan dalam satu transaksi.
+    """
+
+    conn = get_connection()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # 1. Mencari PO dan mengunci baris selama transaksi
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    po_number,
+                    supplier_id,
+                    purchase_request_id,
+                    status
+                FROM purchase_orders
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (po_id,)
+            )
+
+            po = cursor.fetchone()
+
+            # 2. Memastikan PO ditemukan
+            if not po:
+                raise ValueError("Purchase Order tidak ditemukan")
+
+            # 3. Memastikan status masih CREATED
+            if po["status"] != "CREATED":
+                raise ValueError(
+                    f"PO tidak dapat dikonfirmasi karena status saat ini "
+                    f"{po['status']}"
+                )
+
+            # 4. Mengubah status menjadi CONFIRMED
+            cursor.execute(
+                """
+                UPDATE purchase_orders
+                SET status = %s
+                WHERE id = %s
+                """,
+                ("CONFIRMED", po_id)
+            )
+
+            # 5. Menyiapkan payload event
+            payload = {
+                "po_id": po["id"],
+                "po_number": po["po_number"],
+                "purchase_request_id": po["purchase_request_id"],
+                "supplier_id": po["supplier_id"],
+                "status": "CONFIRMED"
+            }
+
+            # 6. Menyimpan event ke outbox
+            cursor.execute(
+                """
+                INSERT INTO outbox_events (
+                    id,
+                    aggregate_type,
+                    aggregate_id,
+                    event_type,
+                    payload
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    "purchase_order",
+                    po_id,
+                    "po.confirmed",
+                    json.dumps(payload)
+                )
+            )
+
+        # 7. Menyimpan perubahan database
+        conn.commit()
+
+        return {
+            "message": "Purchase Order berhasil dikonfirmasi",
+            "purchase_order_id": po_id,
+            "po_number": po["po_number"],
+            "status": "CONFIRMED"
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
+
