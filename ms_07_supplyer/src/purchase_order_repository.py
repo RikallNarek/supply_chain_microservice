@@ -514,3 +514,102 @@ def deliver_purchase_order(po_id):
 
     finally:
         conn.close()
+
+
+def cancel_purchase_order(po_id):
+    """
+    Mengubah status Purchase Order dari CREATED menjadi CANCELLED.
+    Perubahan status dan pencatatan event dilakukan dalam satu transaksi.
+    """
+
+    conn = get_connection()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # 1. Mencari PO dan mengunci baris selama transaksi
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    po_number,
+                    supplier_id,
+                    purchase_request_id,
+                    status
+                FROM purchase_orders
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (po_id,)
+            )
+
+            po = cursor.fetchone()
+
+            # 2. Memastikan PO ditemukan
+            if not po:
+                raise ValueError("Purchase Order tidak ditemukan")
+
+            # 3. Memastikan status PO adalah CREATED
+            if po["status"] != "CREATED":
+                raise ValueError(
+                    f"PO tidak dapat dibatalkan karena "
+                    f"status saat ini {po['status']}"
+                )
+
+            # 4. Mengubah status menjadi CANCELLED
+            cursor.execute(
+                """
+                UPDATE purchase_orders
+                SET status = %s
+                WHERE id = %s
+                """,
+                ("CANCELLED", po_id)
+            )
+
+            # 5. Menyiapkan payload event
+            payload = {
+                "po_id": po["id"],
+                "po_number": po["po_number"],
+                "purchase_request_id": po["purchase_request_id"],
+                "supplier_id": po["supplier_id"],
+                "status": "CANCELLED"
+            }
+
+            # 6. Menyimpan event ke outbox
+            cursor.execute(
+                """
+                INSERT INTO outbox_events (
+                    id,
+                    aggregate_type,
+                    aggregate_id,
+                    event_type,
+                    payload
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    "purchase_order",
+                    po_id,
+                    "po.cancelled",
+                    json.dumps(payload)
+                )
+            )
+
+        # 7. Menyimpan perubahan database
+        conn.commit()
+
+        return {
+            "message": "Purchase Order berhasil dibatalkan",
+            "purchase_order_id": po_id,
+            "po_number": po["po_number"],
+            "status": "CANCELLED"
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
+

@@ -14,7 +14,8 @@ from ms_07_supplyer.src.supplier_repository import (
 from ms_07_supplyer.src.purchase_order_repository import (
     confirm_purchase_order,
     ship_purchase_order,
-    deliver_purchase_order
+    deliver_purchase_order,
+    cancel_purchase_order
 )
 
 app = FastAPI(title="Supplier Service")
@@ -255,3 +256,28 @@ def deliver_po(po_id: str):
             status_code=500,
             detail="Terjadi kesalahan pada database"
         )
+
+
+@app.post("/purchase-orders/{po_id}/cancel")
+def cancel_po(po_id: str):
+    try:
+        result = cancel_purchase_order(po_id)
+
+        return {
+            "status": "success",
+            "message": result["message"],
+            "data": result
+        }
+
+    except ValueError as e:
+        if "tidak ditemukan" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+
+        raise HTTPException(status_code=409, detail=str(e))
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Terjadi kesalahan pada database"
+        )
+
